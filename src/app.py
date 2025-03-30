@@ -10,7 +10,8 @@ from collections import Counter, deque
 import csv
 import gc
 
-from speechtospeech import Can_to_eng, Eng_to_can, MultilingualTranslator
+# Only import the MultilingualTranslator
+from speechtospeech.multilingual_translator import MultilingualTranslator
 from cv.utils.cvfpscalc import CvFpsCalc
 from cv.model.keypoint_classifier.keypoint_classifier import KeyPointClassifier
 from cv.model.point_history_classifier.point_history_classifier import PointHistoryClassifier
@@ -36,7 +37,7 @@ def main():
     # App title with styling
     st.markdown("""
     # 🗣️ Speech Translator
-    Translate between Cantonese-English or any supported languages using your voice
+    Translate between languages using your voice
     """)
     
     # Create session state variables
@@ -53,126 +54,40 @@ def main():
     tab1, tab2, tab3 = st.tabs(["Translator", "Hand Gesture", "History"])
     
     with tab1:
-        st.subheader("Select Translation Mode")
-        mode = st.radio(
-            "Choose a mode:",
-            ("Cantonese-English Translation", "International Translation")
-        )
+        st.subheader("Select Language Pair")
         
-        if mode == "Cantonese-English Translation":
-            st.subheader("Select Translation Direction")
-            choice = st.radio(
-                "Choose an option:",
-                ("Speak in Cantonese → Translate to English",
-                 "Speak in English → Translate to Cantonese")
-            )
-            
-            # Translation section
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                translate_button = st.button("Start Recording & Translate", type="primary", key="can_eng")
-            with col2:
-                clear_button = st.button("Clear Results", key="clear_can_eng")
-                if clear_button:
-                    st.session_state.input_text = ""
-                    st.session_state.output_text = ""
-            
-            if translate_button:
-                with st.status("Processing...", expanded=True) as status:
-                    st.write("🎤 Recording audio...")
-                    
-                    if choice == "Speak in Cantonese → Translate to English":
-                        cantonese_text, english_translation = Can_to_eng.translate_cantonese_to_english_speech_with_return()
-                        st.session_state.input_text = cantonese_text if cantonese_text else "No speech detected"
-                        st.session_state.output_text = english_translation if english_translation else "Translation failed"
-                    else:
-                        english_text, cantonese_translation = Eng_to_can.translate_english_to_cantonese_speech_with_return()
-                        st.session_state.input_text = english_text if english_text else "No speech detected"
-                        st.session_state.output_text = cantonese_translation if cantonese_translation else "Translation failed"
-                    
-                    st.write("✅ Translation complete!")
-                    status.update(label="Translation complete!", state="complete")
-                    
-                    # Add to history
-                    if st.session_state.input_text and st.session_state.output_text:
-                        timestamp = time.strftime("%H:%M:%S")
-                        st.session_state.history.append({
-                            "timestamp": timestamp,
-                            "direction": choice,
-                            "input": st.session_state.input_text,
-                            "output": st.session_state.output_text
-                        })
-                        st.session_state.translation_count += 1
-            
-            # Display results
-            st.subheader("Translation Results")
-            results_cols = st.columns(2)
-            with results_cols[0]:
-                source_lang = "Cantonese" if choice == "Speak in Cantonese → Translate to English" else "English"
-                st.markdown(f"##### Source: {source_lang}")
-                st.info(st.session_state.input_text if st.session_state.input_text else "Input will appear here")
-            with results_cols[1]:
-                target_lang = "English" if choice == "Speak in Cantonese → Translate to English" else "Cantonese"
-                st.markdown(f"##### Target: {target_lang}")
-                st.success(st.session_state.output_text if st.session_state.output_text else "Translation will appear here")
+        # Limited language options
+        languages = {
+            "English": "en",
+            "Chinese": "zh",
+            "Malay": "ms",
+            "Tamil": "ta"
+        }
         
-        elif mode == "International Translation":
-            st.subheader("Select Languages")
-            languages = {
-                "Arabic": "ar",
-                "Bahasa (Indonesian)": "id",
-                "Bengali": "bn",
-                "Bulgarian": "bg",
-                "Chinese (Mandarin)": "zh",
-                "Croatian": "hr",
-                "Czech": "cs",
-                "Danish": "da",
-                "Dutch": "nl",
-                "English": "en",
-                "Finnish": "fi",
-                "French": "fr",
-                "German": "de",
-                "Greek": "el",
-                "Hindi": "hi",
-                "Hungarian": "hu",
-                "Italian": "it",
-                "Japanese": "ja",
-                "Korean": "ko",
-                "Melayu (Malay)": "ms",
-                "Norwegian": "no",
-                "Polish": "pl",
-                "Portuguese": "pt",
-                "Romanian": "ro",
-                "Russian": "ru",
-                "Spanish": "es",
-                "Swahili": "sw",
-                "Swedish": "sv",
-                "Tamil": "ta",
-                "Thai": "th",
-                "Turkish": "tr",
-                "Vietnamese": "vi"
-            }
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                source_lang = st.selectbox("Source Language", list(languages.keys()), key="source_intl")
-            with col2:
-                target_lang = st.selectbox("Target Language", list(languages.keys()), index=10, key="target_intl")
-            
-            # Translation section
-            col1, col2 = st.columns([2, 1])
-            with col1:
-                translate_button = st.button("Start Recording & Translate", type="primary", key="intl")
-            with col2:
-                clear_button = st.button("Clear Results", key="clear_intl")
-                if clear_button:
-                    st.session_state.input_text = ""
-                    st.session_state.output_text = ""
-            
-            if translate_button:
-                with st.status("Processing...", expanded=True) as status:
-                    st.write("🎤 Recording audio...")
-                    
+        col1, col2 = st.columns(2)
+        with col1:
+            source_lang = st.selectbox("Source Language", list(languages.keys()), key="source_lang")
+        with col2:
+            # Filter out the source language from target options
+            target_options = [lang for lang in languages.keys() if lang != source_lang]
+            target_lang = st.selectbox("Target Language", target_options, key="target_lang")
+        
+        # Translation section
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            translate_button = st.button("Start Recording & Translate", type="primary", key="translate")
+        with col2:
+            clear_button = st.button("Clear Results", key="clear")
+            if clear_button:
+                st.session_state.input_text = ""
+                st.session_state.output_text = ""
+        
+        if translate_button:
+            with st.status("Processing...", expanded=True) as status:
+                st.write("🎤 Recording audio...")
+                
+                # Use MultilingualTranslator for all language pairs
+                try:
                     translator = MultilingualTranslator()
                     source_code = languages[source_lang]
                     target_code = languages[target_lang]
@@ -198,16 +113,18 @@ def main():
                             "output": st.session_state.output_text
                         })
                         st.session_state.translation_count += 1
-            
-            # Display results
-            st.subheader("Translation Results")
-            results_cols = st.columns(2)
-            with results_cols[0]:
-                st.markdown(f"##### Source: {source_lang}")
-                st.info(st.session_state.input_text if st.session_state.input_text else "Input will appear here")
-            with results_cols[1]:
-                st.markdown(f"##### Target: {target_lang}")
-                st.success(st.session_state.output_text if st.session_state.output_text else "Translation will appear here")
+                except Exception as e:
+                    st.error(f"Translation error: {str(e)}")
+        
+        # Display results
+        st.subheader("Translation Results")
+        results_cols = st.columns(2)
+        with results_cols[0]:
+            st.markdown(f"##### Source: {source_lang}")
+            st.info(st.session_state.input_text if st.session_state.input_text else "Input will appear here")
+        with results_cols[1]:
+            st.markdown(f"##### Target: {target_lang}")
+            st.success(st.session_state.output_text if st.session_state.output_text else "Translation will appear here")
     
     # Hand Gesture tab - Fully optimized for Raspberry Pi
     with tab2:
@@ -338,10 +255,10 @@ def main():
                     debug_image = image.copy()
                     
                     # Process with MediaPipe
-                    image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-                    image.flags.writeable = False
-                    results = hands.process(image)
-                    image.flags.writeable = True
+                    image_rgb = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+                    image_rgb.flags.writeable = False
+                    results = hands.process(image_rgb)
+                    image_rgb.flags.writeable = True
                     
                     if results.multi_hand_landmarks:
                         for hand_landmarks, handedness in zip(results.multi_hand_landmarks, results.multi_handedness):
@@ -409,6 +326,8 @@ def main():
                         point_history.append([0, 0])
                         if mobilenet_active:
                             sign_language_placeholder.markdown("**Sign Language:** None")
+                        hand_sign_placeholder.markdown("**Hand Sign:** None")
+                        finger_gesture_placeholder.markdown("**Finger Gesture:** None")
                     
                     # Convert to RGB for display
                     debug_image_rgb = cv.cvtColor(debug_image, cv.COLOR_BGR2RGB)
@@ -528,12 +447,6 @@ def pre_process_point_history(image, point_history):
         temp_point_history[index][1] = (temp_point_history[index][1] - base_y) / image_height
     temp_point_history = list(itertools.chain.from_iterable(temp_point_history))
     return temp_point_history
-
-def draw_point_history(image, point_history):
-    for index, point in enumerate(point_history):
-        if point[0] != 0 and point[1] != 0:
-            cv.circle(image, (point[0], point[1]), 1 + int(index / 2), (152, 251, 152), 2)
-    return image
 
 if __name__ == "__main__":
     main()
