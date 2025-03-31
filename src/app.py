@@ -49,6 +49,10 @@ def main():
         st.session_state.translation_count = 0
     if 'history' not in st.session_state:
         st.session_state.history = []
+    if 'translator' not in st.session_state:
+        st.session_state.translator = None
+    if 'is_recording' not in st.session_state:
+        st.session_state.is_recording = False
 
     # Create tabs
     tab1, tab2, tab3 = st.tabs(["Translator", "Hand Gesture", "History"])
@@ -75,46 +79,72 @@ def main():
         # Translation section
         col1, col2 = st.columns([2, 1])
         with col1:
-            translate_button = st.button("Start Recording & Translate", type="primary", key="translate")
+            if not st.session_state.is_recording:
+                # Show Start button when not recording
+                translate_button = st.button("Start Recording & Translate", type="primary", key="translate")
+                if translate_button:
+                    st.session_state.is_recording = True
+                    
+                    # Initialize the translator if needed
+                    if not st.session_state.translator:
+                        st.session_state.translator = SimpleTranslator()
+                    
+                    try:
+                        # Start recording
+                        st.session_state.translator.start_recording()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error starting recording: {str(e)}")
+                        st.session_state.is_recording = False
+            else:
+                # Show recording indicator and stop button
+                st.markdown("#### 🔴 Recording in progress...")
+                stop_button = st.button("Stop Recording", type="primary", key="stop_recording")
+                if stop_button:
+                    with st.status("Processing...", expanded=True) as status:
+                        st.write("🎤 Recording stopped, translating...")
+                        
+                        try:
+                            # Stop recording and process translation
+                            source_code = languages[source_lang]
+                            target_code = languages[target_lang]
+                            
+                            if st.session_state.translator:
+                                input_text, translated_text = st.session_state.translator.stop_recording_and_translate(
+                                    source_lang=source_code, 
+                                    target_lang=target_code
+                                )
+                                
+                                st.session_state.input_text = input_text if input_text else "No speech detected"
+                                st.session_state.output_text = translated_text if translated_text else "Translation failed"
+                                
+                                st.write("✅ Translation complete!")
+                                status.update(label="Translation complete!", state="complete")
+                                
+                                # Add to history
+                                if st.session_state.input_text and st.session_state.output_text:
+                                    timestamp = time.strftime("%H:%M:%S")
+                                    st.session_state.history.append({
+                                        "timestamp": timestamp,
+                                        "direction": f"{source_lang} → {target_lang}",
+                                        "input": st.session_state.input_text,
+                                        "output": st.session_state.output_text
+                                    })
+                                    st.session_state.translation_count += 1
+                            else:
+                                st.error("Translator not initialized properly")
+                        except Exception as e:
+                            st.error(f"Translation error: {str(e)}")
+                    
+                    # Reset recording state
+                    st.session_state.is_recording = False
+                    st.rerun()
+        
         with col2:
             clear_button = st.button("Clear Results", key="clear")
             if clear_button:
                 st.session_state.input_text = ""
                 st.session_state.output_text = ""
-        
-        if translate_button:
-            with st.status("Processing...", expanded=True) as status:
-                st.write("🎤 Recording audio...")
-                
-                # Use SimpleTranslator for all language pairs
-                try:
-                    translator = SimpleTranslator()
-                    source_code = languages[source_lang]
-                    target_code = languages[target_lang]
-                    
-                    input_text, translated_text = translator.translate_speech(
-                        source_lang=source_code, 
-                        target_lang=target_code
-                    )
-                    
-                    st.session_state.input_text = input_text if input_text else "No speech detected"
-                    st.session_state.output_text = translated_text if translated_text else "Translation failed"
-                    
-                    st.write("✅ Translation complete!")
-                    status.update(label="Translation complete!", state="complete")
-                    
-                    # Add to history
-                    if st.session_state.input_text and st.session_state.output_text:
-                        timestamp = time.strftime("%H:%M:%S")
-                        st.session_state.history.append({
-                            "timestamp": timestamp,
-                            "direction": f"{source_lang} → {target_lang}",
-                            "input": st.session_state.input_text,
-                            "output": st.session_state.output_text
-                        })
-                        st.session_state.translation_count += 1
-                except Exception as e:
-                    st.error(f"Translation error: {str(e)}")
         
         # Display results
         st.subheader("Translation Results")
@@ -149,9 +179,6 @@ def main():
                     st.session_state.hand_gesture_active = False
                     st.rerun()
         
-        # Option to enable MobileNet
-        # use_mobilenet = st.checkbox("Enable Sign Language Recognition (MobileNet)", value=False, key="use_mobilenet")
-        
         # If hand gesture recognition is active, show the webcam feed
         if st.session_state.hand_gesture_active:
             # Initialize MediaPipe Hands with optimized settings for Pi
@@ -166,22 +193,6 @@ def main():
             # Initialize the classifiers
             keypoint_classifier = KeyPointClassifier()
             point_history_classifier = PointHistoryClassifier()
-            
-            # Conditionally initialize MobileNet
-            mobilenet_active = False
-            mobilenet_classifier = None
-            
-            # if use_mobilenet:
-            #     with st.spinner("Loading MobileNet for sign language recognition..."):
-            #         try:
-            #             MobileNetClassifier = import_mobilenet()
-            #             if MobileNetClassifier is not None:
-            #                 mobilenet_classifier = MobileNetClassifier()
-            #                 st.success("MobileNet loaded successfully!")
-            #                 mobilenet_active = True
-            #         except Exception as e:
-            #             st.error(f"Failed to load MobileNet: {str(e)}")
-            #             mobilenet_active = False
             
             # Read labels
             keypoint_classifier_labels = []
@@ -206,12 +217,7 @@ def main():
             
             # Display gesture information
             st.markdown("### Current Gestures")
-            if mobilenet_active:
-                gesture_info_cols = st.columns(3)
-                with gesture_info_cols[2]:
-                    sign_language_placeholder = st.empty()
-            else:
-                gesture_info_cols = st.columns(2)
+            gesture_info_cols = st.columns(2)
                 
             with gesture_info_cols[0]:
                 hand_sign_placeholder = st.empty()
@@ -232,7 +238,6 @@ def main():
             try:
                 # Initialize frame counters for skipping
                 frame_count = 0
-                sign_frame_counter = 0
                 
                 while cap.isOpened() and st.session_state.hand_gesture_active:
                     fps = cvFpsCalc.get()
@@ -291,41 +296,8 @@ def main():
                             hand_sign_placeholder.markdown(f"**Hand Sign:** {keypoint_classifier_labels[hand_sign_id]}")
                             finger_gesture_placeholder.markdown(f"**Finger Gesture:** {point_history_classifier_labels[most_common_gesture_id]}")
                             
-                            # MobileNet classification for sign language (process less frequently)
-                            sign_frame_counter += 1
-                            if mobilenet_active and mobilenet_classifier is not None and sign_frame_counter % 5 == 0:
-                                try:
-                                    # Extract hand region with margin
-                                    margin = 30
-                                    x1 = max(0, brect[0] - margin)
-                                    y1 = max(0, brect[1] - margin)
-                                    x2 = min(debug_image.shape[1], brect[2] + margin)
-                                    y2 = min(debug_image.shape[0], brect[3] + margin)
-                                    
-                                    # Only process if we have a valid hand image
-                                    if x2 > x1 and y2 > y1:
-                                        hand_img = debug_image[y1:y2, x1:x2]
-                                        
-                                        if hand_img.size > 0:
-                                            # Get sign language classification
-                                            sign, confidence = mobilenet_classifier(hand_img)
-                                            
-                                            # Display result
-                                            sign_language_placeholder.markdown(f"**Sign Language:** {sign} ({confidence:.2f})")
-                                            
-                                            # Simplified text display
-                                            text_position = (brect[0], brect[3] + 20)
-                                            cv.putText(debug_image, 
-                                                    f"Sign: {sign}", 
-                                                    text_position, 
-                                                    cv.FONT_HERSHEY_SIMPLEX, 
-                                                    0.5, (0, 255, 0), 1, cv.LINE_AA)
-                                except Exception as e:
-                                    print(f"Error in MobileNet classification: {str(e)}")
                     else:
                         point_history.append([0, 0])
-                        if mobilenet_active:
-                            sign_language_placeholder.markdown("**Sign Language:** None")
                         hand_sign_placeholder.markdown("**Hand Sign:** None")
                         finger_gesture_placeholder.markdown("**Finger Gesture:** None")
                     

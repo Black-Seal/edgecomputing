@@ -6,11 +6,13 @@ import tempfile
 from pydub import AudioSegment
 from pydub.playback import play
 import time
+import threading
 
 class SimpleTranslator:
     """
     A lightweight speech translator optimized for Raspberry Pi
     that supports translation between English and Chinese/Malay/Tamil.
+    With additional recording control for streamlit interface.
     """
     def __init__(self):
         self.recognizer = sr.Recognizer()
@@ -51,6 +53,109 @@ class SimpleTranslator:
             "ta": "ta"       # Tamil
         }
         
+        # New variables for recording control
+        self.is_recording = False
+        self._recording_thread = None
+        self._should_stop = False
+        self._audio_data = None
+        self._current_source_lang = "en"
+        self._audio_queue = []  # Store audio chunks
+        
+    def start_recording(self):
+        """Start recording audio from microphone"""
+        if self.is_recording:
+            return  # Already recording
+            
+        self.is_recording = True
+        self._should_stop = False
+        self._audio_data = None
+        self._audio_queue = []
+        
+        # Start the recording thread
+        self._recording_thread = threading.Thread(target=self._record_audio_thread)
+        self._recording_thread.daemon = True
+        self._recording_thread.start()
+        
+        print("Recording started...")
+        
+    def _record_audio_thread(self):
+        """Background thread for recording audio"""
+        print("Recording thread started")
+        
+        try:
+            # Use with statement to properly manage the microphone resource
+            with sr.Microphone() as source:
+                print("Adjusting for ambient noise...")
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                print("Listening... Speak now!")
+                
+                # Keep recording until stop is called
+                while not self._should_stop and self.is_recording:
+                    try:
+                        # Record a short chunk (non-blocking approach)
+                        audio = self.recognizer.listen(source, timeout=1.0, phrase_time_limit=10)
+                        self._audio_data = audio  # Store the most recent audio
+                        self._audio_queue.append(audio)  # Add to queue
+                        print("Audio chunk captured")
+                    except sr.WaitTimeoutError:
+                        # No speech detected in this chunk, just continue
+                        pass
+                    except Exception as e:
+                        print(f"Error recording audio chunk: {e}")
+        except Exception as e:
+            print(f"Error in recording thread: {e}")
+        finally:
+            print("Recording thread finished")
+    
+    def stop_recording_and_translate(self, source_lang="en", target_lang="zh"):
+        """Stop recording and translate the recorded audio"""
+        if not self.is_recording:
+            return None, "Not recording"
+            
+        # Signal the recording thread to stop
+        self._should_stop = True
+        self.is_recording = False
+        self._current_source_lang = source_lang
+        
+        # Wait for the recording thread to finish
+        if self._recording_thread and self._recording_thread.is_alive():
+            self._recording_thread.join(timeout=2.0)
+        
+        # Process the audio recording
+        try:
+            # Use the most recent audio chunk
+            audio = self._audio_data
+            
+            if not audio and len(self._audio_queue) > 0:
+                # Try using the last chunk from the queue
+                audio = self._audio_queue[-1]
+            
+            if not audio:
+                return None, "No speech detected"
+                
+            # Process the audio
+            original_text = self.speech_to_text(audio, source_lang)
+            if not original_text:
+                return None, "Could not understand speech"
+                
+            # Translate the text
+            translated_text = self.translate_text(original_text, source_lang, target_lang)
+            if not translated_text:
+                return original_text, "Translation failed"
+            
+            # Optionally play the translated speech
+            self.text_to_speech(translated_text, target_lang)
+            
+            return original_text, translated_text
+            
+        except Exception as e:
+            print(f"Error in stop_recording_and_translate: {e}")
+            return None, f"Error: {str(e)}"
+        finally:
+            # Clean up
+            self._audio_data = None
+            self._audio_queue = []
+    
     def record_audio(self, source_lang_code):
         """Record audio from microphone with adjusted parameters for RPi"""
         with sr.Microphone() as source:
@@ -175,31 +280,21 @@ class SimpleTranslator:
             return False
     
     def translate_speech(self, source_lang="en", target_lang="zh"):
-        """Complete pipeline to process speech translation optimized for RPi"""
-        start_time = time.time()
+        """
+        Complete pipeline to process speech translation
+        Legacy method for backward compatibility
+        """
+        # For backward compatibility with the original implementation
+        # We'll just record, stop, and translate in one step
         
-        # Record audio
-        audio = self.record_audio(source_lang)
-        if not audio:
-            return None, None
-            
-        # Convert speech to text
-        original_text = self.speech_to_text(audio, source_lang)
-        if not original_text:
-            return None, None
-            
-        # Translate text
-        translated_text = self.translate_text(original_text, source_lang, target_lang)
-        if not translated_text:
-            return original_text, None
-            
-        # Convert translated text to speech
-        self.text_to_speech(translated_text, target_lang)
+        # Start recording
+        self.start_recording()
         
-        elapsed_time = time.time() - start_time
-        print(f"Total translation time: {elapsed_time:.2f} seconds")
+        # Wait a fixed time (5 seconds)
+        time.sleep(5)
         
-        return original_text, translated_text
+        # Stop and translate
+        return self.stop_recording_and_translate(source_lang, target_lang)
 
 
 # For standalone testing
