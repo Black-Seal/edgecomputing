@@ -10,8 +10,8 @@ from collections import Counter, deque
 import csv
 import gc
 
-# Only import the MultilingualTranslator
-from speechtospeech.multilingual_translator import MultilingualTranslator
+# Import the SimpleTranslator from its own module
+from speechtospeech.simple_translator import SimpleTranslator
 from cv.utils.cvfpscalc import CvFpsCalc
 from cv.model.keypoint_classifier.keypoint_classifier import KeyPointClassifier
 from cv.model.point_history_classifier.point_history_classifier import PointHistoryClassifier
@@ -86,9 +86,9 @@ def main():
             with st.status("Processing...", expanded=True) as status:
                 st.write("🎤 Recording audio...")
                 
-                # Use MultilingualTranslator for all language pairs
+                # Use SimpleTranslator for all language pairs
                 try:
-                    translator = MultilingualTranslator()
+                    translator = SimpleTranslator()
                     source_code = languages[source_lang]
                     target_code = languages[target_lang]
                     
@@ -447,6 +447,7 @@ def pre_process_point_history(image, point_history):
         temp_point_history[index][1] = (temp_point_history[index][1] - base_y) / image_height
     temp_point_history = list(itertools.chain.from_iterable(temp_point_history))
     return temp_point_history
+
 
 if __name__ == "__main__":
     main()
