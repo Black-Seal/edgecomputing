@@ -108,7 +108,10 @@ class SimpleTranslator:
             print("Recording thread finished")
     
     def stop_recording_and_translate(self, source_lang="en", target_lang="zh"):
-        """Stop recording and translate the recorded audio"""
+        """Stop recording and translate the recorded audio with timing metrics"""
+        # Start timing
+        start_time = time.time()
+        
         if not self.is_recording:
             return None, "Not recording"
             
@@ -118,12 +121,15 @@ class SimpleTranslator:
         self._current_source_lang = source_lang
         
         # Wait for the recording thread to finish
+        thread_wait_start = time.time()
         if self._recording_thread and self._recording_thread.is_alive():
             self._recording_thread.join(timeout=2.0)
+        thread_wait_time = time.time() - thread_wait_start
         
         # Process the audio recording
         try:
             # Use the most recent audio chunk
+            audio_processing_start = time.time()
             audio = self._audio_data
             
             if not audio and len(self._audio_queue) > 0:
@@ -131,20 +137,42 @@ class SimpleTranslator:
                 audio = self._audio_queue[-1]
             
             if not audio:
+                print("No speech detected")
                 return None, "No speech detected"
                 
-            # Process the audio
+            # Process the audio to text
             original_text = self.speech_to_text(audio, source_lang)
+            audio_processing_time = time.time() - audio_processing_start
+            
             if not original_text:
+                print("Could not understand speech")
                 return None, "Could not understand speech"
                 
             # Translate the text
+            translation_start = time.time()
             translated_text = self.translate_text(original_text, source_lang, target_lang)
+            translation_time = time.time() - translation_start
+            
             if not translated_text:
+                print("Translation failed")
                 return original_text, "Translation failed"
             
-            # Optionally play the translated speech
+            # Play the translated speech
+            tts_start = time.time()
             self.text_to_speech(translated_text, target_lang)
+            tts_time = time.time() - tts_start
+            
+            # Calculate total time
+            total_time = time.time() - start_time
+            
+            # Print timing metrics
+            print("\n===== Translation Timing Metrics =====")
+            print(f"Thread wait time: {thread_wait_time:.2f} seconds")
+            print(f"Audio processing time: {audio_processing_time:.2f} seconds")
+            print(f"Text translation time: {translation_time:.2f} seconds") 
+            print(f"Text-to-speech time: {tts_time:.2f} seconds")
+            print(f"Total processing time: {total_time:.2f} seconds")
+            print("=====================================\n")
             
             return original_text, translated_text
             
@@ -282,21 +310,46 @@ class SimpleTranslator:
     def translate_speech(self, source_lang="en", target_lang="zh"):
         """
         Complete pipeline to process speech translation
-        Legacy method for backward compatibility
+        Legacy method for backward compatibility with timing metrics
         """
+        # Start overall timing
+        start_time_total = time.time()
+        
         # For backward compatibility with the original implementation
         # We'll just record, stop, and translate in one step
         
+        print(f"Starting recording for {source_lang} to {target_lang} translation...")
+        
         # Start recording
+        recording_start_time = time.time()
         self.start_recording()
         
         # Wait a fixed time (5 seconds)
         time.sleep(5)
         
+        # End recording timing
+        recording_time = time.time() - recording_start_time - 5  # Subtract the sleep time
+        
+        # Start translation timing
+        translation_start_time = time.time()
+        
         # Stop and translate
-        return self.stop_recording_and_translate(source_lang, target_lang)
-
-
+        original_text, translated_text = self.stop_recording_and_translate(source_lang, target_lang)
+        
+        # End translation timing
+        translation_time = time.time() - translation_start_time
+        
+        # Calculate total time
+        total_time = time.time() - start_time_total
+        
+        # Print timing information
+        print(f"Timing metrics:")
+        print(f"  - Recording processing time: {recording_time:.2f} seconds")
+        print(f"  - Translation processing time: {translation_time:.2f} seconds")
+        print(f"  - Total processing time: {total_time:.2f} seconds")
+        
+        return original_text, translated_text
+    
 # For standalone testing
 if __name__ == "__main__":
     translator = SimpleTranslator()
