@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 import numpy as np
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
 
 
 class PointHistoryClassifier(object):
@@ -12,7 +10,7 @@ class PointHistoryClassifier(object):
         invalid_value=0,
         num_threads=1,
     ):
-        self.interpreter = tf.lite.Interpreter(
+        self.interpreter = tflite.Interpreter(
             model_path=model_path, num_threads=num_threads
         )
 

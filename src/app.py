@@ -150,7 +150,7 @@ def main():
                     st.rerun()
         
         # Option to enable MobileNet
-        use_mobilenet = st.checkbox("Enable Sign Language Recognition (MobileNet)", value=False, key="use_mobilenet")
+        # use_mobilenet = st.checkbox("Enable Sign Language Recognition (MobileNet)", value=False, key="use_mobilenet")
         
         # If hand gesture recognition is active, show the webcam feed
         if st.session_state.hand_gesture_active:
@@ -171,17 +171,17 @@ def main():
             mobilenet_active = False
             mobilenet_classifier = None
             
-            if use_mobilenet:
-                with st.spinner("Loading MobileNet for sign language recognition..."):
-                    try:
-                        MobileNetClassifier = import_mobilenet()
-                        if MobileNetClassifier is not None:
-                            mobilenet_classifier = MobileNetClassifier()
-                            st.success("MobileNet loaded successfully!")
-                            mobilenet_active = True
-                    except Exception as e:
-                        st.error(f"Failed to load MobileNet: {str(e)}")
-                        mobilenet_active = False
+            # if use_mobilenet:
+            #     with st.spinner("Loading MobileNet for sign language recognition..."):
+            #         try:
+            #             MobileNetClassifier = import_mobilenet()
+            #             if MobileNetClassifier is not None:
+            #                 mobilenet_classifier = MobileNetClassifier()
+            #                 st.success("MobileNet loaded successfully!")
+            #                 mobilenet_active = True
+            #         except Exception as e:
+            #             st.error(f"Failed to load MobileNet: {str(e)}")
+            #             mobilenet_active = False
             
             # Read labels
             keypoint_classifier_labels = []

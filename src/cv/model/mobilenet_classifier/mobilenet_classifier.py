@@ -1,13 +1,12 @@
-# src/cv/model/mobilenet_classifier/mobilenet_classifier.py
 import numpy as np
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
 import cv2
 
 class MobileNetClassifier:
     def __init__(self, model_path='cv/model/mobilenet_classifier/MobileNet.tflite', 
                 class_names_path='cv/model/mobilenet_classifier/class_names.txt'):
         # Load TFLite model
-        self.interpreter = tf.lite.Interpreter(model_path=model_path)
+        self.interpreter = tflite.Interpreter(model_path=model_path)
         self.interpreter.allocate_tensors()
         
         # Get input and output details

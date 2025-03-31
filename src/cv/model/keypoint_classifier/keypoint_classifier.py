@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 import numpy as np
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
 
 
 class KeyPointClassifier(object):
@@ -10,7 +8,7 @@ class KeyPointClassifier(object):
         model_path="cv/model/keypoint_classifier/keypoint_classifier.tflite",
         num_threads=1,
     ):
-        self.interpreter = tf.lite.Interpreter(
+        self.interpreter = tflite.Interpreter(
             model_path=model_path, num_threads=num_threads
         )
 
