@@ -23,7 +23,6 @@ This is an edge computing project designed to run on Raspberry Pi hardware. Edge
 ```
 EDGECOMPUTING/
 ├── env/                    # Virtual environment directory
-├── jjask/                  # Auxiliary files
 └── src/                    # Source code
     ├── cv/                 # Computer vision modules
     │   ├── model/          # Hand gesture and keypoint classification models
@@ -86,13 +85,21 @@ The project has been carefully optimized to perform well on resource-constrained
 
 1. Clone the repository
 2. Create and activate a virtual environment
+   ## For Raspberry Pi
+   ```
+   # Create the virtual environment
+   python3 -m venv env
+
+   # Activate the virtual environment
+   source env/bin/activate
+   ```
 3. Install dependencies:
    ```
    pip install -r requirements.txt
    ```
 4. Navigate to the src directory:
    ```
-   cd src
+   cd src/
    ```
    > **IMPORTANT**: You must run the application from the src directory for the cv module paths to work correctly!
 
