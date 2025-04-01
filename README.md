@@ -26,13 +26,13 @@ EDGECOMPUTING/
 └── src/                    # Source code
     ├── cv/                 # Computer vision modules
     │   ├── model/          # Hand gesture and keypoint classification models
-    │   └── utils/          # Utilities for CV operations
+    │   ├── utils/          # Utilities for CV operations
+    │   └── hand_recog.py/  # Hand recognition implementation
     ├── speechtospeech/     # Speech translation modules
     │   ├── __pycache__/    
     │   ├── __init__.py
     │   └── simple_translator.py  # Core translation functionality
-    ├── app.py              # Main application file with Streamlit UI
-    └── hand_recog.py       # Hand recognition implementation
+    └── app.py              # Main application file with Streamlit UI
 ```
 
 ## Development Branches
