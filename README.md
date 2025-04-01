@@ -112,8 +112,8 @@ The project has been carefully optimized to perform well on resource-constrained
 
 - Python 3.7+
 - Raspberry Pi 4 or newer (recommended)
-- USB microphone
-- Webcam
+- USB Webcam with inbuilt microphone
+- Bluetooth speaker or USB speaker
 - Internet connection for translation API access
 
 ## Dependencies
